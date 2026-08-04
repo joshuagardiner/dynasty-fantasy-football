@@ -2,6 +2,64 @@ import { Player } from "../lib/responses/Player";
 import { Roster } from "../lib/responses/Roster";
 import { getPlayers } from "./cache/Players";
 
+const FORBIDDEN_RESPONSE_PROPERTIES = new Set([
+  "co_owners",
+  "keepers",
+  "metadata",
+  "player_map",
+  "birth_city",
+  "high_school",
+  "birth_country",
+  "injury_body_part",
+  "team_changed_at",
+  "sport",
+  "rotowire_id",
+  "gsis_id",
+  "kalshi_id",
+  "espn_id",
+  "team_abbr",
+  "news_updated",
+  "injury_start_date",
+  "stats_id",
+  "practice_description",
+  "yahoo_id",
+  "sportradar_id",
+  "birth_state",
+  "competitions",
+  "search_rank",
+  "search_last_name",
+  "swish_id",
+  "oddsjam_id",
+  "injury_notes",
+  "player_shard",
+  "pandascore_id",
+  "practice_participation",
+  "rotoworld_id",
+  "opta_id",
+]);
+
+export function stripUnwantedFields<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripUnwantedFields(item)) as T;
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).reduce(
+      (acc, [key, nestedValue]) => {
+        if (FORBIDDEN_RESPONSE_PROPERTIES.has(key)) {
+          return acc;
+        }
+
+        acc[key] = stripUnwantedFields(nestedValue);
+        return acc;
+      },
+      {} as Record<string, unknown>,
+    ) as T;
+  }
+
+  return value;
+}
+
 async function fetchJSON<T>(url: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -9,7 +67,9 @@ async function fetchJSON<T>(url: string): Promise<T> {
       `Request failed with status: ${response.status} for URL: ${url}`,
     );
   }
-  return response.json() as Promise<T>;
+
+  const data = (await response.json()) as T;
+  return stripUnwantedFields(data);
 }
 
 function mapRostersToPlayers(

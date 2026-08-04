@@ -5,11 +5,11 @@ const RosterCollection = (props: { rosters: LeagueRoster[] }) => {
   const { rosters } = props;
 
   return (
-    <>
+    <div className="roster-collection-grid">
       {rosters.map((roster) => (
         <Roster key={roster.roster_id} roster={roster} />
       ))}
-    </>
+    </div>
   );
 };
 

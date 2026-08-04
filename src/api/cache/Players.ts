@@ -7,6 +7,56 @@ const KEY = "players";
 const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 const PLAYERS_URL = "https://api.sleeper.app/v1/players/nfl?active=true";
+const FORBIDDEN_PLAYER_PROPERTIES = new Set([
+  "co_owners",
+  "keepers",
+  "metadata",
+  "player_map",
+  "birth_city",
+  "high_school",
+  "birth_country",
+  "injury_body_part",
+  "team_changed_at",
+  "sport",
+  "rotowire_id",
+  "gsis_id",
+  "kalshi_id",
+  "espn_id",
+  "team_abbr",
+  "news_updated",
+  "injury_start_date",
+  "stats_id",
+  "practice_description",
+  "yahoo_id",
+  "sportradar_id",
+  "birth_state",
+  "competitions",
+  "search_rank",
+  "search_last_name",
+  "swish_id",
+  "oddsjam_id",
+  "injury_notes",
+  "player_shard",
+  "pandascore_id",
+  "practice_participation",
+  "rotoworld_id",
+  "opta_id",
+]);
+
+function sanitizePlayerRecord(
+  data: Record<string, Player>,
+): Record<string, Player> {
+  return Object.fromEntries(
+    Object.entries(data).map(([playerId, player]) => [
+      playerId,
+      Object.fromEntries(
+        Object.entries(player as Record<string, unknown>).filter(
+          ([key]) => !FORBIDDEN_PLAYER_PROPERTIES.has(key),
+        ),
+      ) as Player,
+    ]),
+  ) as Record<string, Player>;
+}
 
 let memoryCache: Cache | null = null;
 let inFlight: Promise<Record<string, Player>> | null = null;
@@ -48,7 +98,9 @@ export async function getPlayers(
   force = false,
 ): Promise<Record<string, Player>> {
   if (!force && isFresh(memoryCache)) {
-    return memoryCache.data;
+    const sanitizedData = sanitizePlayerRecord(memoryCache.data);
+    memoryCache = { ...memoryCache, data: sanitizedData };
+    return sanitizedData;
   }
 
   if (inFlight) {
@@ -62,8 +114,9 @@ export async function getPlayers(
       ).catch(() => undefined);
 
       if (isFresh(stored)) {
-        memoryCache = stored;
-        return stored.data;
+        const sanitizedData = sanitizePlayerRecord(stored.data);
+        memoryCache = { ...stored, data: sanitizedData };
+        return sanitizedData;
       }
     }
 
@@ -73,12 +126,13 @@ export async function getPlayers(
     }
 
     const data: Record<string, Player> = await response.json();
-    memoryCache = { fetchedAt: Date.now(), data };
+    const sanitizedData = sanitizePlayerRecord(data);
+    memoryCache = { fetchedAt: Date.now(), data: sanitizedData };
     await idb("readwrite", (store) => store.put(memoryCache, KEY)).catch(
       () => {},
     );
 
-    return data;
+    return sanitizedData;
   })().finally(() => {
     inFlight = null;
   });

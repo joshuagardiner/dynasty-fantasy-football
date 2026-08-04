@@ -4,9 +4,10 @@ import { LeagueRoster } from "../../lib/LeagueRoster";
 const FantasyFootball = (props: { rosters: LeagueRoster[] }) => {
   const { rosters } = props;
 
+  console.log("FantasyFootball rosters:", rosters);
   return (
-    <div>
-      <h1>Fantasy Football</h1>
+    <div className="page-shell">
+      <h1 className="page-title">Fantasy Football</h1>
       <RosterCollection rosters={rosters} />
     </div>
   );
